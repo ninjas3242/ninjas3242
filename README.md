@@ -1,11 +1,9 @@
-[![Dragon Index — open the interactive dragon](assets/dragon-index.gif)](https://ninjas3242.github.io/ninjas3242/)
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="assets/meadow-still.webp">
+  <img src="assets/meadow.webp" width="100%" alt="Raj Acharya">
+</picture>
 
-**[Summon the cursor dragon ↗](https://ninjas3242.github.io/ninjas3242/)**
-
-### Repository index
-
-| Repository | Focus |
-| :--- | :--- |
-| [Truck Bot](https://github.com/ninjas3242/Truck_bot) | Conversational commerce |
-| [Document Analyzer](https://github.com/ninjas3242/Dep_Law_bot) | Document analysis |
-| [HealthVault](https://github.com/PARSHAV529/Health-Vault) | Health records · Team project |
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/activity-mobile.svg">
+  <img src="assets/activity.svg" width="100%" alt="GitHub activity from 22 Nov 2025 – 21 Nov 2026. 1,316 contributions across 42 active weeks. Busiest day: 70 contributions.">
+</picture>

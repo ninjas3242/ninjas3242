@@ -1,0 +1,29 @@
+name: Refresh profile activity
+on:
+  schedule:
+    - cron: '43 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: profile-activity
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read contribution calendar and render profile stats
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -o pipefail
+          gh api graphql -f query='query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{weeks{contributionDays{date contributionCount}}}}}}' -f login="$PROFILE_OWNER" | python3 scripts/activity.py
+      - name: Publish changed figures
+        run: |
+          git add -- README.md assets/activity.svg assets/activity-mobile.svg
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: refresh profile activity'
+            git push
+          fi
