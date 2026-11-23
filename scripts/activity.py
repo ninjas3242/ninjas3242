@@ -60,17 +60,19 @@ def main():
     for name, width, height in [('activity', 1080, 280), ('activity-mobile', 440, 209)]:
         Path(f'assets/{name}.svg').write_text(render_strip(width, height, list(weekly.values()), metrics, period), encoding='utf-8')
     alt = f'GitHub activity from {period}. {metrics[0][1]:,} contributions across {metrics[1][1]} active weeks. Busiest day: {metrics[2][1]} contributions.'
-    readme = f'''<picture>
-  <source media="(prefers-reduced-motion: reduce)" srcset="assets/meadow-still.webp">
-  <img src="assets/meadow.webp" width="100%" alt="Raj Acharya">
-</picture>
-
+    block = f'''<!-- activity:start -->
 <picture>
   <source media="(max-width: 600px)" srcset="assets/activity-mobile.svg">
   <img src="assets/activity.svg" width="100%" alt="{alt}">
 </picture>
-'''
-    Path('README.md').write_text(readme, encoding='utf-8')
+<!-- activity:end -->'''
+    readme_path = Path('README.md')
+    readme = readme_path.read_text(encoding='utf-8')
+    head, sep, rest = readme.partition('<!-- activity:start -->')
+    _, sep2, tail = rest.partition('<!-- activity:end -->')
+    if not (sep and sep2):
+        raise ValueError('README.md is missing the activity markers')
+    readme_path.write_text(head + block + tail, encoding='utf-8')
 
 
 if __name__ == '__main__':
