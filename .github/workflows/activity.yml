@@ -22,7 +22,7 @@ jobs:
           gh api graphql -f query='query($login:String!){user(login:$login){createdAt repositories(ownerAffiliations:OWNER, privacy:PUBLIC){totalCount} contributionsCollection{contributionCalendar{weeks{contributionDays{date contributionCount}}}}}}' -f login="$PROFILE_OWNER" | python3 scripts/terminal_profile.py
       - name: Publish changed terminal
         run: |
-          git add -- assets/terminal.svg
+          git add -- assets/terminal.svg assets/stats.json
           if ! git diff --cached --quiet; then
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: refresh profile terminal'
             git push

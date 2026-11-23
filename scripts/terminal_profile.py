@@ -1,7 +1,7 @@
 """Render the animated terminal profile from GitHub GraphQL JSON on stdin.
 
 Writes assets/terminal.svg: a looping terminal session that types `neofetch` (with an
-animated neural network), `ls ~/systems` and `cat ~/.github/stats`, with live stats and a subtle glitch.
+animated neural network), `ls ~/systems` and `gh contributions --year`, with live stats and a subtle glitch.
 Edit the content constants below; the daily workflow re-renders the file.
 """
 import json
@@ -34,9 +34,8 @@ SYSTEMS = [
 BG, BAR, EDGE = '#0c1d24', '#152a31', '#24414b'
 TEXT, MUTED, DIM = '#dce9e7', '#86a3a8', '#4f6d73'
 MINT, TEAL, BLUE = '#5af78e', '#3fbfa8', '#57b8ff'
+HEAT = ['#14313a', '#1d5a57', '#2a8f7e', '#3fbfa8', '#5af78e']
 SEG = ('#2b3d45', '#1d5a57', MINT)
-BLOCKS = [['#1d2b33', '#ff5370', '#5af78e', '#f4b860', '#57b8ff', '#b07cff', '#2fbfa5', '#c9d4d6'],
-          ['#2e4450', '#ff8a9e', '#9effbf', '#ffd38a', '#9ad3ff', '#d0b0ff', '#7fe0cf', '#ffffff']]
 GLITCH_RED, GLITCH_CYAN = '#ff4f7b', '#4de8ff'
 
 FONT = "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
@@ -135,6 +134,7 @@ def stats(data):
         'repos': user['repositories']['totalCount'],
         'uptime': uptime(created, end),
         'since': created.strftime('%b %Y'),
+        'weeks': [[(d['date'], d['contributionCount']) for d in w['contributionDays']] for w in cal['weeks']][-53:],
     }
 
 
@@ -252,11 +252,8 @@ def render(s):
         cls = tl.show(t + (i + 2) * 0.035)
         body.append(f'<text x="{info_x}" y="{y0 + (i + 2) * LH:.1f}" class="{cls}" xml:space="preserve">'
                     f'<tspan fill="{MINT}" font-weight="700">{esc(k)}</tspan><tspan fill="{TEXT}">: {esc(v)}</tspan></text>')
-    for r, row in enumerate(BLOCKS):
-        cls = tl.show(t + (13 + r) * 0.035)
-        for i, col in enumerate(row):
-            body.append(f'<rect x="{info_x + i * CW * 3:.1f}" y="{y0 + (13 + r) * LH - 15:.1f}" width="{CW * 3:.1f}" '
-                        f'height="{LH}" fill="{col}" class="{cls}"/>')
+    body.append(f'<text x="{info_x}" y="{y0 + 13 * LH:.1f}" class="{tl.show(t + 0.5)}" xml:space="preserve">'
+                f'<tspan fill="{DIM}">› </tspan><tspan fill="{MUTED}">click the terminal to run commands yourself</tspan></text>')
     y = y0 + art_rows * LH + LH * 0.6
     t += art_rows * 0.035 + 0.9
 
@@ -272,29 +269,58 @@ def render(s):
     y += (len(SYSTEMS) + 1) * LH + LH * 0.6
     t += 1.1
 
-    # 3) cat ~/.github/stats
-    svg, t, _ = prompt(tl, X0, y, t, 'cat ~/.github/stats', t + 0.3)
+    # 3) gh contributions: heatmap + summary
+    svg, t, _ = prompt(tl, X0, y, t, 'gh contributions --year', t + 0.3)
     body.append(svg)
     t += 0.35
     cls = tl.show(t)
-    bx, by, bw, bh = X0, y + 14, 640, LH * 3 + 26
-    title = ' GitHub · past year '
+    weeks = s['weeks']
+    cell, gap = 12, 3
+    bx, by = X0, y + 14
+    bw = W - 2 * X0
+    gx = bx + 46
+    gy = by + 44
+    bh = 44 + 7 * (cell + gap) + 62
+    title = ' contributions · past year '
     body.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="6" fill="none" stroke="{TEAL}" '
                 f'stroke-opacity=".7" class="{cls}"/>')
     body.append(f'<rect x="{bx + 14}" y="{by - 2}" width="{len(title) * CW:.1f}" height="4" fill="{BG}" class="{cls}"/>')
     body.append(txt(bx + 14, by + 5, title, MINT, cls, 700))
-    cells = [('Contributions', f'{s["contributions"]:,}'), ('Active days', str(s['active_days'])),
-             ('Active weeks', str(s['active_weeks'])), ('Best day', str(s['best_day'])),
-             ('Public repos', str(s['repos'])), ('On GitHub since', s['since'])]
-    for i, (k, v) in enumerate(cells):
-        col, row = i % 2, i // 2
-        cls = tl.show(t + 0.1 + row * 0.06)
-        cx = bx + 22 + col * (bw / 2)
-        yy = by + 32 + row * LH
-        body.append(txt(cx, yy, k, MUTED, cls))
-        body.append(txt(cx + 26 * CW - 22, yy, v, TEXT, cls, 700, ' text-anchor="end"'))
+    counts = sorted(n for w in weeks for _, n in w if n)
+    q = [counts[int(len(counts) * f)] for f in (.25, .5, .75)] if counts else [1, 2, 3]
+    level = lambda n: 0 if n == 0 else 1 if n <= q[0] else 2 if n <= q[1] else 3 if n <= q[2] else 4
+    for d, name in ((1, 'Mon'), (3, 'Wed'), (5, 'Fri')):
+        body.append(f'<text x="{bx + 14}" y="{gy + d * (cell + gap) + 10}" fill="{DIM}" class="{cls}" '
+                    f'style="font-size:11px">{name}</text>')
+    last_month = None
+    for c, week in enumerate(weeks):
+        ccls = tl.show(t + 0.15 + c * 0.014)
+        month = date.fromisoformat(week[0][0]).strftime('%b')
+        if month != last_month and c < len(weeks) - 2:
+            if last_month is not None:
+                body.append(f'<text x="{gx + c * (cell + gap)}" y="{gy - 8}" fill="{DIM}" class="{ccls}" '
+                            f'style="font-size:11px">{month}</text>')
+            last_month = month
+        for day, (ds, n) in enumerate(week):
+            dow = (date.fromisoformat(ds).weekday() + 1) % 7
+            body.append(f'<rect x="{gx + c * (cell + gap)}" y="{gy + dow * (cell + gap)}" width="{cell}" height="{cell}" '
+                        f'rx="2.5" fill="{HEAT[level(n)]}" class="{ccls}"><title>{n} on {ds}</title></rect>')
+    lx = gx + 53 * (cell + gap) - 5 * (cell + gap) - 30
+    ly = gy + 7 * (cell + gap) + 16
+    lcls = tl.show(t + 0.15 + len(weeks) * 0.014)
+    body.append(f'<text x="{lx - 8}" y="{ly + 10}" fill="{DIM}" text-anchor="end" class="{lcls}" style="font-size:11px">less</text>')
+    for i, col in enumerate(HEAT):
+        body.append(f'<rect x="{lx + i * (cell + gap)}" y="{ly}" width="{cell}" height="{cell}" rx="2.5" fill="{col}" class="{lcls}"/>')
+    body.append(f'<text x="{lx + 5 * (cell + gap) + 4}" y="{ly + 10}" fill="{DIM}" class="{lcls}" style="font-size:11px">more</text>')
+    parts = [(f'{s["contributions"]:,}', 'contributions'), (str(s['active_days']), 'active days'),
+             (str(s['active_weeks']), 'active weeks'), (str(s['best_day']), 'best day'),
+             (s['since'], 'joined')]
+    parts[-1] = ('', f'on GitHub since {s["since"]}')
+    spans = '<tspan fill="#4f6d73">  ·  </tspan>'.join(
+        f'<tspan fill="{TEXT}" font-weight="700">{esc(v)}</tspan><tspan fill="{MUTED}"> {esc(k)}</tspan>' for v, k in parts)
+    body.append(f'<text x="{gx}" y="{by + bh - 18}" class="{lcls}" xml:space="preserve">{spans}</text>')
     y = by + bh + LH + 14
-    t += 0.9
+    t += 0.15 + len(weeks) * 0.014 + 0.9
 
     # 4) idle prompt with blinking cursor
     svg, _, cur_x = prompt(tl, X0, y, t, '', t)
@@ -339,6 +365,9 @@ def render(s):
 def main():
     s = stats(json.load(sys.stdin))
     Path('assets/terminal.svg').write_text(render(s), encoding='utf-8', newline='\n')
+    # live stats for the interactive web terminal (index.html)
+    web = dict(s, info=[(k, s['uptime'] if v is None else v) for k, v in INFO], systems=SYSTEMS)
+    Path('assets/stats.json').write_text(json.dumps(web, indent=1), encoding='utf-8', newline='\n')
 
 
 if __name__ == '__main__':

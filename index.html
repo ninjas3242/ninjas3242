@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>raj@ninjas3242</title>
+<meta name="description" content="Raj Acharya, Applied AI Engineer. An interactive terminal: voice agents, multi-agent systems, AI video.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c1d24;--bar:#152a31;--edge:#24414b;--text:#dce9e7;--muted:#86a3a8;--dim:#4f6d73;--mint:#5af78e;--teal:#3fbfa8;--blue:#57b8ff;--red:#ff4f7b;--cyan:#4de8ff;--page:#071216}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--page);color:var(--text)}
+body{font:15px/1.45 'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;display:flex;justify-content:center;padding:28px 16px}
+.win{width:100%;max-width:1040px;background:var(--bg);border:1px solid var(--edge);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;height:calc(100vh - 56px);min-height:420px}
+.bar{height:34px;background:var(--bar);border-bottom:1px solid var(--edge);display:flex;align-items:center;justify-content:center;position:relative;color:var(--muted);font-size:13px;flex:none}
+.bar .dots{position:absolute;right:14px;display:flex;gap:8px}
+.bar .dots i{width:12px;height:12px;border-radius:50%;background:#2e4a53;display:block}
+.bar .dots i:last-child{background:#ff5f57}
+#out{flex:1;overflow-y:auto;padding:16px 22px 8px;white-space:pre-wrap;word-break:break-word;cursor:text}
+#out::-webkit-scrollbar{width:8px}#out::-webkit-scrollbar-thumb{background:var(--edge);border-radius:4px}
+.line{min-height:1.45em}
+.pl{display:inline-flex;align-items:stretch;vertical-align:middle;margin-right:1.6ch;height:1.35em;font-size:14px;flex:none}
+.pl svg{width:.85em;height:.85em;margin-right:.5ch}
+.pl span{display:inline-flex;align-items:center;padding:0 .7ch;position:relative}
+.pl span::after{content:"";position:absolute;right:-.6em;top:0;border-top:.675em solid transparent;border-bottom:.675em solid transparent;border-left:.6em solid var(--c);z-index:1}
+.pl span+span{padding-left:1.2ch}
+.pl .a{background:#2b3d45;--c:#2b3d45}.pl .b{background:#1d5a57;--c:#1d5a57}.pl .c{background:var(--mint);--c:var(--mint);color:var(--bg);font-weight:700}
+.k{color:var(--mint);font-weight:700}.m{color:var(--muted)}.d{color:var(--dim)}.b2{color:var(--blue);font-weight:700}.t{color:var(--text)}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+.row{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 6px}
+.cmd{display:flex;align-items:center}
+#in{flex:1;background:transparent;border:0;outline:0;color:var(--text);font:inherit;caret-color:var(--mint);padding:0}
+.grid{display:grid;grid-template-rows:repeat(7,11px);grid-auto-flow:column;grid-auto-columns:11px;gap:3px;margin:6px 0}
+.grid i{border-radius:2px;display:block}
+.box{border:1px solid rgba(63,191,168,.7);border-radius:6px;padding:14px 16px 12px;margin:14px 0 6px;position:relative;max-width:900px}
+.gw{overflow-x:auto;padding-top:4px}
+.box>.ttl{position:absolute;top:-.8em;left:12px;background:var(--bg);padding:0 .6ch;color:var(--mint);font-weight:700}
+.glitch{position:relative;display:inline-block}
+.glitch::before,.glitch::after{content:attr(data-t);position:absolute;left:0;top:0;opacity:0;pointer-events:none}
+.glitch::before{color:var(--red)}.glitch::after{color:var(--cyan)}
+.glitch.go::before{animation:gr .35s steps(2) 1}.glitch.go::after{animation:gc .35s steps(2) 1}
+@keyframes gr{0%{opacity:.9;transform:translate(-3px,0)}50%{opacity:.7;transform:translate(2px,1px)}100%{opacity:0}}
+@keyframes gc{0%{opacity:.9;transform:translate(3px,0)}50%{opacity:.7;transform:translate(-2px,-1px)}100%{opacity:0}}
+@media (max-width:640px){body{padding:0}.win{border-radius:0;height:100vh;border:0}#out{padding:12px;font-size:13px}.row{gap:12px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="bar">raj@ninjas3242: ~<div class="dots"><i></i><i></i><i></i></div></div>
+  <div id="out" aria-live="polite"></div>
+</div>
+<script>
+const out = document.getElementById('out');
+const HEAT = ['#14313a', '#1d5a57', '#2a8f7e', '#3fbfa8', '#5af78e'];
+const FALLBACK = {
+  contributions: null, info: [['Role', 'Applied AI Engineer']], systems: [], weeks: []
+};
+let S = FALLBACK;
+const hist = []; let hi = 0;
+
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const line = (...parts) => { const l = el('div', 'line'); parts.forEach(p => l.append(typeof p === 'string' ? document.createTextNode(p) : p)); out.append(l); return l; };
+const span = (cls, text) => el('span', cls, text);
+const scroll = () => { out.scrollTop = out.scrollHeight; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function promptEl() {
+  const p = el('span', 'pl');
+  const br = span('c', 'main');
+  br.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 12 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><line x1="3" y1="1" x2="3" y2="11"/><circle cx="3" cy="13" r="1.8"/><circle cx="9" cy="3.5" r="1.8"/><path d="M9 5.3C9 9 3 7.5 3 10.5"/></svg>');
+  p.append(span('a', 'raj'), span('b', '~'), br);
+  return p;
+}
+
+function netSVG() {
+  const L = [3, 4, 4, 2], names = ['input', 'hidden', 'hidden', 'output'];
+  const W = 330, H = 330, gap = 70, cy = (H - 30) / 2, PASS = 3.6, HOP = 0.55;
+  const xs = L.map((_, i) => 34 + i * (W - 68) / (L.length - 1));
+  const nodes = L.map((n, i) => Array.from({ length: n }, (_, j) => [xs[i], cy + (j - (n - 1) / 2) * gap]));
+  let css = '', g = '';
+  for (let k = 0; k < L.length - 1; k++) {
+    const a0 = k * HOP / PASS * 100, a1 = (k + 1) * HOP / PASS * 100;
+    css += `@keyframes p${k}{0%,${a0}%{stroke-dashoffset:10;opacity:0}${a0 + .1}%{opacity:1}${a1}%{stroke-dashoffset:-100;opacity:1}${a1 + .1}%,100%{opacity:0;stroke-dashoffset:-100}}.p${k}{animation:p${k} ${PASS}s linear infinite}`;
+  }
+  for (let k = 0; k < L.length; k++) {
+    const a0 = k * HOP / PASS * 100;
+    css += `@keyframes n${k}{0%,${Math.max(0, a0 - .1)}%{opacity:.35}${a0 + 1}%{opacity:1}${a0 + 14}%,100%{opacity:.35}}.n${k}{animation:n${k} ${PASS}s ease-out infinite}`;
+  }
+  const pairs = [];
+  for (let k = 0; k < L.length - 1; k++) for (const [x1, y1] of nodes[k]) for (const [x2, y2] of nodes[k + 1]) pairs.push([k, x1, y1, x2, y2]);
+  for (const [, x1, y1, x2, y2] of pairs) g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3fbfa8" stroke-opacity=".28" stroke-width="1.2"/>`;
+  for (const [k, x1, y1, x2, y2] of pairs) g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" pathLength="100" stroke="#5af78e" stroke-width="2" stroke-linecap="round" stroke-dasharray="10 200" stroke-dashoffset="10" opacity="0" class="p${k}"/>`;
+  nodes.forEach((layer, k) => layer.forEach(([x, y]) => { g += `<circle cx="${x}" cy="${y}" r="12" fill="#0c1d24" stroke="#5af78e" stroke-width="2"/><circle cx="${x}" cy="${y}" r="5.5" fill="#5af78e" class="n${k}"/>`; }));
+  xs.forEach((x, k) => { g += `<text x="${x}" y="${H - 6}" fill="#4f6d73" text-anchor="middle" font-size="12">${names[k]}</text>`; });
+  nodes[0].forEach(([x, y], j) => { g += `<text x="${x - 20}" y="${y + 4}" fill="#86a3a8" text-anchor="end" font-size="12">x${j + 1}</text>`; });
+  nodes[3].forEach(([x, y], j) => { g += `<text x="${x + 20}" y="${y + 4}" fill="#86a3a8" font-size="12">y${j + 1}</text>`; });
+  const wrap = el('div'); wrap.style.flex = 'none';
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="inherit" role="img" aria-label="Animated neural network"><style>${css}</style>${g}</svg>`;
+  wrap.firstChild.style.maxWidth = '100%';
+  return wrap;
+}
+
+const C = {};
+C.help = () => {
+  const cmds = [['neofetch', 'who I am, at a glance'], ['whoami', 'one-line intro'], ['ls', 'the systems I build'],
+    ['stack', 'tools and languages I use'], ['contributions', 'GitHub activity, past year'], ['stats', 'GitHub numbers'],
+    ['projects', 'public projects with links'], ['github', 'open my GitHub profile'], ['history', 'commands you ran'], ['clear', 'clear the screen']];
+  line(span('m', 'Available commands:'));
+  cmds.forEach(([c, d]) => line('  ', span('k', c.padEnd(15)), span('m', d)));
+  line(span('d', 'Tip: Tab completes, ↑/↓ browse history.'));
+};
+C.whoami = () => line(span('t', 'Raj Acharya'), span('m', ', Applied AI Engineer. I build real-time voice agents, multi-agent systems and AI video pipelines.'));
+C.neofetch = () => {
+  const row = el('div', 'row');
+  row.append(netSVG());
+  const info = el('div');
+  const name = el('div'); const g = el('span', 'glitch k', 'raj@ninjas3242'); g.dataset.t = 'raj@ninjas3242';
+  name.append(g); info.append(name, el('div', 'd', '-'.repeat(14)));
+  (S.info || []).forEach(([k, v]) => { const d = el('div'); d.append(span('k', k), span('t', ': ' + v)); info.append(d); });
+  info.append(el('div', null, ' '));
+  const hint = el('div'); hint.append(span('d', '› '), span('m', 'type '), span('k', 'help'), span('m', ' for commands')); info.append(hint);
+  row.append(info); out.append(row);
+  requestAnimationFrame(() => g.classList.add('go'));
+};
+C.ls = () => (S.systems || []).forEach(([n, d]) => line(span('b2', n.padEnd(17)), span('m', d)));
+C.stack = () => (S.info || []).slice(3).forEach(([k, v]) => line(span('k', k.padEnd(11)), span('t', v)));
+C.stats = () => {
+  if (S.contributions == null) return line(span('m', 'Stats are loading, try again in a moment.'));
+  [['Contributions (past year)', S.contributions.toLocaleString()], ['Active days', S.active_days], ['Active weeks', S.active_weeks],
+   ['Best day', S.best_day], ['Public repos', S.repos], ['On GitHub since', S.since], ['Uptime', S.uptime]]
+    .forEach(([k, v]) => line(span('m', k.padEnd(27)), span('t', String(v))));
+};
+C.contributions = () => {
+  if (!S.weeks || !S.weeks.length) return line(span('m', 'Contribution data is loading, try again in a moment.'));
+  const box = el('div', 'box'); box.append(el('span', 'ttl', ' contributions · past year '));
+  const counts = S.weeks.flat().map(d => d[1]).filter(Boolean).sort((a, b) => a - b);
+  const q = [.25, .5, .75].map(f => counts[Math.floor(counts.length * f)] || 1);
+  const lvl = n => n === 0 ? 0 : n <= q[0] ? 1 : n <= q[1] ? 2 : n <= q[2] ? 3 : 4;
+  const grid = el('div', 'grid');
+  S.weeks.forEach((w, c) => {
+    const pad = (new Date(w[0][0] + 'T00:00:00Z').getUTCDay());
+    if (c === 0) for (let i = 0; i < pad; i++) grid.append(el('i'));
+    w.forEach(([ds, n]) => { const i = el('i'); i.style.background = HEAT[lvl(n)]; i.title = `${n} on ${ds}`; grid.append(i); });
+  });
+  const gw = el('div', 'gw'); gw.append(grid); box.append(gw);
+  const sum = el('div');
+  [[S.contributions.toLocaleString(), 'contributions'], [S.active_days, 'active days'], [S.active_weeks, 'active weeks'], [S.best_day, 'best day']]
+    .forEach(([v, k], i) => { if (i) sum.append(span('d', '  ·  ')); sum.append(span('k', String(v)), span('m', ' ' + k)); });
+  box.append(sum); out.append(box);
+};
+C.projects = () => {
+  [['Truck Bot', 'https://github.com/ninjas3242/Truck_bot', 'multilingual sales assistant with lead qualification'],
+   ['Document Analyzer', 'https://github.com/ninjas3242/Dep_Law_bot', 'batch HTML document analysis with Gemini or local models'],
+   ['HealthVault', 'https://github.com/PARSHAV529/Health-Vault', 'team-built health records platform (contributor)']]
+    .forEach(([n, u, d]) => { const a = el('a', null, n.padEnd(19)); a.href = u; a.target = '_blank'; a.rel = 'noopener'; line(a, span('m', d)); });
+  line(span('d', 'Most of my work is private client work; ask me about it.'));
+};
+C.github = () => { window.open('https://github.com/ninjas3242', '_blank', 'noopener'); line(span('m', 'Opening github.com/ninjas3242 …')); };
+C.history = () => hist.forEach((h, i) => line(span('d', String(i + 1).padStart(3) + '  '), span('t', h)));
+C.clear = () => { out.innerHTML = ''; };
+C.uptime = () => line(span('t', S.uptime ? `on GitHub for ${S.uptime}` : 'loading…'));
+C.date = () => line(span('t', new Date().toString()));
+C.echo = args => line(span('t', args.join(' ')));
+C.sudo = () => line(span('m', 'Permission denied. But I am open to good conversations.'));
+C.exit = () => line(span('m', 'Close the tab to leave. Type '), span('k', 'help'), span('m', ' to keep exploring.'));
+const ALIAS = { 'gh': 'contributions', 'skills': 'stack', 'about': 'whoami', 'cls': 'clear', 'dir': 'ls', 'man': 'help', '?': 'help' };
+
+function run(raw) {
+  const echo = line(promptEl(), span('t', raw));
+  const [cmd0, ...args] = raw.trim().split(/\s+/);
+  if (!cmd0) return;
+  hist.push(raw.trim()); hi = hist.length;
+  let cmd = cmd0.toLowerCase();
+  if (cmd === 'ls' || cmd === 'cd') cmd = 'ls';
+  cmd = ALIAS[cmd] || cmd;
+  if (C[cmd]) C[cmd](args); else line(span('m', `command not found: ${cmd0}. Type `), span('k', 'help'), span('m', '.'));
+}
+
+function inputLine() {
+  const l = el('div', 'line cmd');
+  const input = el('input'); input.id = 'in'; input.autocomplete = 'off'; input.spellcheck = false; input.setAttribute('aria-label', 'Terminal command');
+  l.append(promptEl(), input); out.append(l); input.focus({ preventScroll: true }); scroll();
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const v = input.value; l.remove(); run(v); inputLine(); }
+    else if (e.key === 'ArrowUp') { if (hi > 0) { input.value = hist[--hi]; } e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { if (hi < hist.length - 1) { input.value = hist[++hi]; } else { hi = hist.length; input.value = ''; } e.preventDefault(); }
+    else if (e.key === 'Tab') { e.preventDefault(); const v = input.value.toLowerCase(); const m = Object.keys(C).filter(c => c.startsWith(v)); if (m.length === 1) input.value = m[0]; else if (m.length) line(span('d', m.join('  '))); scroll(); }
+    else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); C.clear(); inputLine(); }
+  });
+}
+out.addEventListener('click', () => { if (!getSelection().toString()) { const i = document.getElementById('in'); if (i) i.focus(); } });
+
+async function typeCmd(text) {
+  const l = line(promptEl()); const t = span('t', ''); l.append(t);
+  for (const ch of text) { t.textContent += ch; scroll(); await sleep(55 + Math.random() * 45); }
+  await sleep(220); l.remove(); run(text); scroll();
+}
+
+(async () => {
+  try { const r = await fetch('assets/stats.json', { cache: 'no-cache' }); if (r.ok) S = await r.json(); } catch (e) {}
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { run('neofetch'); } else { await sleep(300); await typeCmd('neofetch'); await sleep(500); }
+  inputLine();
+})();
+</script>
+</body>
+</html>
