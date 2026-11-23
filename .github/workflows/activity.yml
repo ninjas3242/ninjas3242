@@ -1,7 +1,7 @@
-name: Refresh profile activity
+name: Refresh profile card
 on:
   schedule:
-    - cron: '43 4 * * 1'
+    - cron: '43 4 * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,17 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Read contribution calendar and render profile stats
+      - name: Read GitHub stats and render the profile card
         env:
           GH_TOKEN: ${{ github.token }}
           PROFILE_OWNER: ${{ github.repository_owner }}
         run: |
           set -o pipefail
-          gh api graphql -f query='query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{weeks{contributionDays{date contributionCount}}}}}}' -f login="$PROFILE_OWNER" | python3 scripts/activity.py
-      - name: Publish changed figures
+          gh api graphql -f query='query($login:String!){user(login:$login){createdAt repositories(ownerAffiliations:OWNER, privacy:PUBLIC){totalCount} contributionsCollection{contributionCalendar{weeks{contributionDays{date contributionCount}}}}}}' -f login="$PROFILE_OWNER" | python3 scripts/card.py
+      - name: Publish changed card
         run: |
-          git add -- README.md assets/activity.svg assets/activity-mobile.svg
+          git add -- assets/card-*.svg
           if ! git diff --cached --quiet; then
-            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: refresh profile activity'
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: refresh profile card'
             git push
           fi
