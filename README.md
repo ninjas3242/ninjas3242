@@ -1,11 +1,11 @@
 <picture>
   <source media="(max-width: 600px)" srcset="assets/intro-mobile.svg">
-  <img src="assets/intro.svg" width="100%" alt="Raj Acharya, Applied AI Engineer. I design and ship real-time voice agents, agentic systems and AI video pipelines.">
+  <img src="assets/intro.svg" width="100%" alt="Raj Acharya, Applied AI Engineer. I build AI systems end to end: real-time voice agents, multi-agent workflows, AI video pipelines and the applications around them.">
 </picture>
 
 <picture>
-  <source media="(max-width: 600px)" srcset="assets/architecture-mobile.svg">
-  <img src="assets/architecture.svg" width="100%" alt="Voice agent architecture: caller to Twilio SIP to LiveKit, Deepgram speech-to-text, an LLM agent with tool calling, and ElevenLabs text-to-speech back to the caller. The agent calls MCP tools, Pinecone retrieval and PostgreSQL, traced in Langfuse.">
+  <source media="(max-width: 600px)" srcset="assets/systems-mobile.svg">
+  <img src="assets/systems.svg" width="100%" alt="What I build: real-time voice agents, multi-agent systems with tools and memory, automated AI video production, and full-stack apps around AI backends.">
 </picture>
 
 <picture>
