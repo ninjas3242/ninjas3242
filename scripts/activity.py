@@ -5,40 +5,34 @@ from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
+from terminal import BAR_H, BLUE, BORDER, DIM, GREEN, TEXT, frame, prompt, text
+
 
 def render_strip(width, height, weekly, metrics, period):
     compact = width < 600
-    margin = 18 if compact else 38
-    column = (width - 2 * margin) / 3
-    number_size = 37 if compact else 58
-    label_size = 13 if compact else 21
-    figure_y = 92 if compact else 130
-    chart_y = figure_y + (65 if compact else 83)
-    base_y = height - 15
-    bars = []
-    slot = (width - 2 * margin) / len(weekly)
+    x = 20 if compact else 36
+    size = 12.5 if compact else 15
+    y = BAR_H + (32 if compact else 42)
+    out = [prompt(x, y, 'gh contributions --last 365d', size),
+           text(x, y + (20 if compact else 26), f'# {period}', size - 1, DIM)]
+    column = (width - 2 * x) / 3
+    fig_y = y + (68 if compact else 88)
+    for n, (name, value) in enumerate(metrics):
+        fx = x + column * n
+        out.append(text(fx, fig_y, f'{value:,}', 28 if compact else 44, TEXT, 700))
+        out.append(text(fx, fig_y + (20 if compact else 28), name.lower().replace(' ', '_'), size, BLUE))
+    chart_top = fig_y + (44 if compact else 62)
+    base_y = height - (18 if compact else 26)
+    slot = (width - 2 * x) / len(weekly)
     peak = max(weekly) or 1
     for n, count in enumerate(weekly):
-        h = max(2, (base_y - chart_y) * count / peak)
-        color = '#e96b33' if count == peak else '#23635c' if count else '#d9e2d8'
-        bars.append(f'<rect x="{margin+n*slot:.1f}" y="{base_y-h:.1f}" width="{slot*.72:.1f}" height="{h:.1f}" rx="1" fill="{color}"><title>{count} contributions</title></rect>')
-    figures = []
-    for n, (name, value) in enumerate(metrics):
-        x = margin + column*n
-        figures.append(f'<text x="{x}" y="{figure_y}" font-size="{number_size}" font-weight="700" letter-spacing="-1.6">{value:,}</text>')
-        figures.append(f'<text x="{x}" y="{figure_y+label_size+8}" font-size="{label_size}">{name}</text>')
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img">
-<title>GitHub activity · {period}</title>
-<rect width="100%" height="100%" rx="13" fill="#f5f7ec"/>
-<g font-family="system-ui, sans-serif" fill="#173e36">
-<text x="{margin}" y="{30 if compact else 44}" font-size="{14 if compact else 22}" font-weight="600">GitHub activity</text>
-<text x="{width-margin}" y="{30 if compact else 44}" text-anchor="end" font-size="{11 if compact else 17}">{period}</text>
-{chr(10).join(figures)}
-<text x="{margin}" y="{chart_y-5}" font-size="{10 if compact else 15}" fill="#45675e">Contributions by week</text>
-</g>
-{chr(10).join(bars)}
-</svg>
-'''
+        h = max(2, (base_y - chart_top) * count / peak)
+        color = GREEN if count else BORDER
+        opacity = 1 if count == peak else .55 + .4 * count / peak if count else 1
+        out.append(f'<rect x="{x+n*slot:.1f}" y="{base_y-h:.1f}" width="{slot*.7:.1f}" height="{h:.1f}" rx="1" '
+                   f'fill="{color}" opacity="{opacity:.2f}"><title>{count} contributions</title></rect>')
+    label = f'GitHub contributions, {period}: ' + ', '.join(f'{v:,} {k.lower()}' for k, v in metrics) + '.'
+    return frame(width, height, 'activity', chr(10).join(out), label)
 
 
 def main():
@@ -57,8 +51,8 @@ def main():
                ('Active weeks', sum(count > 0 for count in weekly.values())),
                ('Best day', max(count for _, count in days))]
     period = f'{start:%d %b %Y} – {end:%d %b %Y}'
-    for name, width, height in [('activity', 1080, 280), ('activity-mobile', 440, 209)]:
-        Path(f'assets/{name}.svg').write_text(render_strip(width, height, list(weekly.values()), metrics, period), encoding='utf-8')
+    for name, width, height in [('activity', 1080, 340), ('activity-mobile', 440, 280)]:
+        Path(f'assets/{name}.svg').write_text(render_strip(width, height, list(weekly.values()), metrics, period), encoding='utf-8', newline='\n')
     alt = f'GitHub activity from {period}. {metrics[0][1]:,} contributions across {metrics[1][1]} active weeks. Busiest day: {metrics[2][1]} contributions.'
     block = f'''<!-- activity:start -->
 <picture>
@@ -72,7 +66,7 @@ def main():
     _, sep2, tail = rest.partition('<!-- activity:end -->')
     if not (sep and sep2):
         raise ValueError('README.md is missing the activity markers')
-    readme_path.write_text(head + block + tail, encoding='utf-8')
+    readme_path.write_text(head + block + tail, encoding='utf-8', newline='\n')
 
 
 if __name__ == '__main__':
