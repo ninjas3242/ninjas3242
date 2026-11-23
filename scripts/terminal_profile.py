@@ -1,7 +1,7 @@
 """Render the animated terminal profile from GitHub GraphQL JSON on stdin.
 
-Writes assets/terminal.svg: a looping terminal session that types `neofetch`,
-`ls ~/systems` and `cat ~/.github/stats`, with live stats and a subtle glitch.
+Writes assets/terminal.svg: a looping terminal session that types `neofetch` (with an
+animated neural network), `ls ~/systems` and `cat ~/.github/stats`, with live stats and a subtle glitch.
 Edit the content constants below; the daily workflow re-renders the file.
 """
 import json
@@ -35,7 +35,6 @@ BG, BAR, EDGE = '#0c1d24', '#152a31', '#24414b'
 TEXT, MUTED, DIM = '#dce9e7', '#86a3a8', '#4f6d73'
 MINT, TEAL, BLUE = '#5af78e', '#3fbfa8', '#57b8ff'
 SEG = ('#2b3d45', '#1d5a57', MINT)
-ART = {'.': '#2a5f5a', ':': '#358a7d', '+': '#3fbfa8', '*': '#5af78e', '(': MINT, '@': MINT, ')': MINT}
 BLOCKS = [['#1d2b33', '#ff5370', '#5af78e', '#f4b860', '#57b8ff', '#b07cff', '#2fbfa5', '#c9d4d6'],
           ['#2e4450', '#ff8a9e', '#9effbf', '#ffd38a', '#9ad3ff', '#d0b0ff', '#7fe0cf', '#ffffff']]
 GLITCH_RED, GLITCH_CYAN = '#ff4f7b', '#4de8ff'
@@ -53,28 +52,59 @@ def esc(s):
     return escape(str(s), quote=True)
 
 
-# ---------- ASCII art: a stippled 3-5-5-3 neural network ----------
-def neural_net(cols=37, rows=17, layers=(3, 5, 5, 3)):
-    g = [[0] * cols for _ in range(rows)]
-    xs = [round(2 + i * (cols - 5) / (len(layers) - 1)) for i in range(len(layers))]
-    nodes = []
-    for i, n in enumerate(layers):
-        span = (rows - 1) * (n - 1) / (max(layers) - 1)
-        nodes.append([(xs[i], round((rows - 1) / 2 - span / 2 + j * span / max(1, n - 1))) for j in range(n)])
-    for a, b in zip(nodes, nodes[1:]):
-        for x1, y1 in a:
-            for x2, y2 in b:
-                steps, seen = abs(x2 - x1) * 3, set()
-                for k in range(1, steps):
-                    p = (round(x1 + (x2 - x1) * k / steps), round(y1 + (y2 - y1) * k / steps))
-                    if p not in seen:
-                        seen.add(p)
-                        g[p[1]][p[0]] += 1
-    out = [[' ' if v == 0 else '.' if v == 1 else ':' if v == 2 else '+' if v <= 4 else '*' for v in r] for r in g]
-    for layer in nodes:
-        for x, y in layer:
-            out[y][x - 1:x + 2] = list('(@)')
-    return [''.join(r) for r in out]
+# ---------- art: a drawn neural network with an animated forward pass ----------
+LAYERS = (3, 4, 4, 2)
+LAYER_NAMES = ('input', 'hidden', 'hidden', 'output')
+PASS = 3.6   # seconds per forward pass
+HOP = 0.55   # seconds for a signal to cross one layer
+
+
+def neural_net(x, top, w, h, cls):
+    """Neural network diagram in terminal colours, with pulses travelling input -> output."""
+    css, out = [], []
+    label_h = 30
+    cy = top + (h - label_h) / 2
+    gap = 74
+    xs = [x + 34 + i * (w - 68) / (len(LAYERS) - 1) for i in range(len(LAYERS))]
+    nodes = [[(xs[i], cy + (j - (n - 1) / 2) * gap) for j in range(n)] for i, n in enumerate(LAYERS)]
+
+    # pulse keyframes: each edge layer fires after the previous one
+    for k in range(len(LAYERS) - 1):
+        a0, a1 = k * HOP / PASS * 100, (k + 1) * HOP / PASS * 100
+        css.append(f'@keyframes p{k}{{0%,{a0:.2f}%{{stroke-dashoffset:10;opacity:0}}{a0 + 0.1:.2f}%{{opacity:1}}'
+                   f'{a1:.2f}%{{stroke-dashoffset:-100;opacity:1}}{a1 + 0.1:.2f}%,100%{{opacity:0;stroke-dashoffset:-100}}}}'
+                   f'.p{k}{{animation:p{k} {PASS}s linear infinite}}')
+    for k in range(len(LAYERS)):
+        a0 = k * HOP / PASS * 100
+        css.append(f'@keyframes n{k}{{0%,{max(0, a0 - 0.1):.2f}%{{opacity:.35}}{a0 + 1:.2f}%{{opacity:1}}'
+                   f'{a0 + 14:.2f}%,100%{{opacity:.35}}}}.n{k}{{animation:n{k} {PASS}s ease-out infinite}}')
+
+    # static edges, then travelling pulses on top
+    for k, (la, lb) in enumerate(zip(nodes, nodes[1:])):
+        for x1, y1 in la:
+            for x2, y2 in lb:
+                out.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{TEAL}" '
+                           f'stroke-opacity=".28" stroke-width="1.2"/>')
+    for k, (la, lb) in enumerate(zip(nodes, nodes[1:])):
+        for x1, y1 in la:
+            for x2, y2 in lb:
+                out.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" pathLength="100" '
+                           f'stroke="{MINT}" stroke-width="2" stroke-linecap="round" stroke-dasharray="10 200" '
+                           f'stroke-dashoffset="10" opacity="0" class="p{k}"/>')
+    # neurons: ring plus an activation core that lights up when the signal arrives
+    for k, layer in enumerate(nodes):
+        for nx, ny in layer:
+            out.append(f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="12" fill="{BG}" stroke="{MINT}" stroke-width="2"/>')
+            out.append(f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="5.5" fill="{MINT}" class="n{k}"/>')
+    # labels
+    for k, (nx, name) in enumerate(zip(xs, LAYER_NAMES)):
+        out.append(f'<text x="{nx:.1f}" y="{top + h - 6:.1f}" fill="{DIM}" text-anchor="middle" '
+                   f'style="font-size:12px">{name}</text>')
+    for j, (nx, ny) in enumerate(nodes[0]):
+        out.append(f'<text x="{nx - 20:.1f}" y="{ny + 4:.1f}" fill="{MUTED}" text-anchor="end" style="font-size:12px">x{j + 1}</text>')
+    for j, (nx, ny) in enumerate(nodes[-1]):
+        out.append(f'<text x="{nx + 20:.1f}" y="{ny + 4:.1f}" fill="{MUTED}" style="font-size:12px">y{j + 1}</text>')
+    return f'<g class="{cls}">' + '\n'.join(out) + '</g>', css
 
 
 # ---------- stats ----------
@@ -197,25 +227,13 @@ def render(s):
     svg, t, _ = prompt(tl, X0, y, t, 'neofetch', t + 0.35)
     body.append(svg)
     t += 0.35
-    art = neural_net()
-    info_x = X0 + len(art[0]) * CW + 40
+    art_w, art_rows = 37 * CW, 17
+    info_x = X0 + art_w + 40
     y0 = y + LH
     css.append(jitter_keyframes('jit', 4))
-    body.append('<g class="jit">')
-    for r, line in enumerate(art):
-        cls = tl.show(t + r * 0.035)
-        parts, cur = [], None
-        for ch in line:
-            col = ART.get(ch, BG)
-            if parts and col == cur:
-                parts[-1][0] += ch
-            else:
-                parts.append([ch, col])
-                cur = col
-        spans = ''.join(f'<tspan fill="{c}"{" font-weight=&quot;700&quot;" if c == MINT else ""}>{esc(p)}</tspan>'
-                        for p, c in parts).replace('&quot;', '"')
-        body.append(f'<text x="{X0}" y="{y0 + r * LH:.1f}" class="{cls}">{spans}</text>')
-    body.append('</g>')
+    net_svg, net_css = neural_net(X0, y0 - 15, art_w, art_rows * LH, tl.show(t))
+    css.extend(net_css)
+    body.append(f'<g class="jit">{net_svg}</g>')
     # name with glitch copies
     name = f'{USER}@{HOST}'
     cls = tl.show(t)
@@ -239,8 +257,8 @@ def render(s):
         for i, col in enumerate(row):
             body.append(f'<rect x="{info_x + i * CW * 3:.1f}" y="{y0 + (13 + r) * LH - 15:.1f}" width="{CW * 3:.1f}" '
                         f'height="{LH}" fill="{col}" class="{cls}"/>')
-    y = y0 + len(art) * LH + LH * 0.6
-    t += len(art) * 0.035 + 0.9
+    y = y0 + art_rows * LH + LH * 0.6
+    t += art_rows * 0.035 + 0.9
 
     # 2) ls ~/systems
     svg, t, _ = prompt(tl, X0, y, t, 'ls ~/systems', t + 0.3)
