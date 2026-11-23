@@ -30,6 +30,6 @@ I build **real-time voice agents** and the systems around them, from telephony a
 <!-- activity:start -->
 <picture>
   <source media="(max-width: 600px)" srcset="assets/activity-mobile.svg">
-  <img src="assets/activity.svg" width="100%" alt="GitHub activity from 24 Nov 2025 – 23 Nov 2026. 1,362 contributions across 43 active weeks. Busiest day: 70 contributions.">
+  <img src="assets/activity.svg" width="100%" alt="GitHub activity from 24 Nov 2025 – 23 Nov 2026. 1,363 contributions across 43 active weeks. Busiest day: 70 contributions.">
 </picture>
 <!-- activity:end -->
